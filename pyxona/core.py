@@ -32,6 +32,18 @@ assert(data_end_length == 12)
 
 
 def parse_attrs(text):
+    """
+    Expects `text` to be a multine text of key value pair where each key value pair occurs on separate
+    line and they are separated by a spce.
+
+    Example:
+
+    text = '''
+    key1 value1
+    key2 value2
+    '''
+
+    """
     attrs = {}
 
     for line in text.split("\n"):
@@ -57,6 +69,10 @@ def parse_attrs(text):
 
 
 def parse_header_and_leave_cursor(file_handle):
+    """
+    Given file_handle, advance the cursor until the end of the search string "data_start"
+    All data up to "data_start" is parased as header and parsed attribute dictionary is returned.
+    """
     header = ""
     while True:
         search_string = "data_start"
@@ -75,6 +91,9 @@ def parse_header_and_leave_cursor(file_handle):
 
 
 def assert_end_of_data(file_handle):
+    """
+    Returns true if the only remaining file content is "data_end"
+    """
     remaining_data = str(file_handle.read(), 'latin1')
     assert(remaining_data.strip() == "data_end")
 
@@ -93,11 +112,13 @@ def scale_analog_signal(value, gain, adc_fullscale_mv, bytes_per_sample):
         raise ValueError("Value passed to scale_analog_signal cannot be a numpy view because we need to convert the entire array to a quantity.")
     max_value = 2**(8 * bytes_per_sample - 1)  # 128 when bytes_per_sample = 1
     result = (value / max_value) * (adc_fullscale_mv / gain)
-    result = result
     return result
 
 
 class Channel:
+    """
+    Represents a single channel
+    """
     def __init__(self, index, name, gain):
         self.index = index
         self.name = name
@@ -105,6 +126,9 @@ class Channel:
 
 
 class ChannelGroup:
+    """
+    Represents a group of channels (e.g. a tetrode group)
+    """
     def __init__(self, channel_group_id, filename, channels, adc_fullscale, attrs):
         self.attrs = attrs
         self.filename = filename
@@ -207,6 +231,9 @@ class SpikeTrain:
 
 
 class AnalogSignal:
+    """
+    Represents analog signals such as EEG,
+    """
     def __init__(self, channel_id, signal, sample_rate, attrs):
         self.channel_id = channel_id
         self.signal = signal
@@ -232,6 +259,9 @@ class TrackingData:
 
 
 class InpData:
+    """
+    Represents input data (analogous to "events")
+    """
     def __init__(self, duration, times, event_types, values):
         self.duration = duration
         self.times = times
@@ -243,6 +273,9 @@ class InpData:
 
 
 class CutData:
+    """
+    Represents the loaded content of a cut data
+    """
     def __init__(self, channel_group_id, indices):
         self.channel_group_id = channel_group_id
         self.indices = indices
@@ -258,6 +291,9 @@ class File:
     Class for reading experimental data from an Axona dataset.
     """
     def __init__(self, filename):
+        """
+        Pass .set file
+        """
         self._absolute_filename = filename
         self._path, relative_filename = os.path.split(filename)
         self._base_filename, extension = os.path.splitext(relative_filename)
@@ -287,6 +323,8 @@ class File:
         self._inp_data = None
         self._tracking = None
 
+        # flags for lazy loading of extra information
+        # True means it's not loaded yet
         self._channel_groups_dirty = True
         self._analog_signals_dirty = True
         self._cuts_dirty = True
@@ -346,10 +384,13 @@ class File:
         return self._cuts
 
     def _read_channel_groups(self):
+
         # TODO this file reading can be removed, perhaps?
         channel_group_filenames = glob.glob(os.path.join(self._path, self._base_filename) + ".[0-9]*")
 
+        # channel id is incremented across all available channels
         self._channel_id_to_channel_group = {}
+        # channel group id refers to the id as found in `.5` and `.9` for spike files
         self._channel_group_id_to_channel_group = {}
         self._channel_count = 0
         self._channel_groups = []
@@ -464,6 +505,9 @@ class File:
         self._inp_data_dirty = False
 
     def _read_tracking(self):
+        """
+        Read position tracking files from `.pos` file
+        """
         pos_filename = os.path.join(self._path, self._base_filename + ".pos")
         if not os.path.exists(pos_filename):
             raise IOError("'.pos' file not found:" + pos_filename)
@@ -527,6 +571,9 @@ class File:
         self._tracking_dirty = False
 
     def _read_analog_signals(self):
+        """
+        Read the content of `.eeg` and `.egf` files
+        """
         # TODO read for specific channel
         # TODO check that .egf file exists
 
