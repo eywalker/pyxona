@@ -15,4 +15,5 @@ setup(
     packages=find_packages(),
     entry_points=entry_points,
     include_package_data=True,
+    install_requires=['quantities']
 )
