@@ -290,7 +290,7 @@ class File:
     """
     Class for reading experimental data from an Axona dataset.
     """
-    def __init__(self, filename):
+    def __init__(self, filename, encoding='latin1'):
         """
         Pass .set file
         """
@@ -301,7 +301,7 @@ class File:
         if extension != ".set":
             raise ValueError("file extension must be '.set'")
 
-        with open(self._absolute_filename, "r") as f:
+        with open(self._absolute_filename, "r", encoding=encoding) as f:
             text = f.read()
 
         attrs = parse_attrs(text)
