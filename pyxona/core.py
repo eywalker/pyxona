@@ -397,7 +397,7 @@ class File:
         for channel_group_filename in channel_group_filenames:
             # increment before, because channel_groups start at 1
             basename, extension = os.path.splitext(channel_group_filename)
-            channel_group_id = int(extension[1:]) - 1
+            channel_group_id = int(extension[1:])
             with open(channel_group_filename, "rb") as f:
                 channel_group_attrs = parse_header_and_leave_cursor(f)
                 num_chans = channel_group_attrs["num_chans"]
@@ -435,7 +435,7 @@ class File:
 
     def _channel_gain(self, channel_group_index, channel_index):
         # TODO split into two functions, one for mapping and one for gain lookup
-        global_channel_index = channel_group_index * 4 + channel_index
+        global_channel_index = (channel_group_index - 1) * 4 + channel_index
         param_name = "gain_ch_{}".format(global_channel_index)
         return float(self.attrs[param_name])
 
@@ -654,7 +654,7 @@ class File:
             split_basename = os.path.basename(cut_filename).split(self._base_filename+"_")[-1]
             suffix = os.path.splitext(split_basename)[0]
             try:
-                channel_group_id = int(suffix) - 1  # -1 to match channel_group_id
+                channel_group_id = int(suffix) # -1 to match channel_group_id
             except ValueError as e:
                 warnings.warn(str(e) + ' Unable to load cut file "' +
                               cut_filename + '".')
