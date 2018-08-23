@@ -553,7 +553,7 @@ class File:
             window_max_y = float(attrs["window_max_y"])
             xsize = window_max_x - window_min_x
             ysize = window_max_y - window_min_y
-            length_scale = [xsize, ysize, xsize, ysize]
+            length_scale = [xsize, ysize] * self._tracked_spots_count
             coords = data["coords"].astype(float) * pq.m
 
             # dacq doc: positions with value 1023 are missing
