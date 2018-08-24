@@ -247,14 +247,15 @@ class AnalogSignal:
 
 
 class TrackingData:
-    def __init__(self, times, positions, attrs):
+    def __init__(self, times, positions, sample_rate, attrs):
         self.attrs = attrs
         self.times = times
         self.positions = positions
+        self.sample_rate = sample_rate
 
     def __str__(self):
-        return "<Axona tracking data: times shape: {}, positions shape: {}>".format(
-            self.times.shape, self.positions.shape
+        return "<Axona tracking data: times shape: {}, positions shape: {}, sample_rate: {}>".format(
+            self.times.shape, self.positions.shape, self.sample_rate
         )
 
 
@@ -600,7 +601,8 @@ class File:
         tracking_data = TrackingData(
             times=timestamps,
             positions=all_pos,
-            attrs=attrs
+            sample_rate=sample_rate,
+            attrs=attrs,
         )
 
         self._tracking = tracking_data
@@ -668,7 +670,8 @@ class File:
             tracking_data = TrackingData(
                 times=times,
                 positions=coords,
-                attrs=attrs
+                attrs=attrs,
+                sample_rate=sample_rate
             )
 
         self._tracking = tracking_data
