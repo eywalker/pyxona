@@ -23,7 +23,7 @@ import warnings
 import glob
 import numpy as np
 from datetime import datetime
-
+import re
 
 data_end_string = "\r\ndata_end\r\n"
 data_end_length = len(data_end_string)
@@ -365,7 +365,7 @@ class File:
     @property
     def tracking(self):
         if self._tracking_dirty:
-            self._read_tracking()
+            self._read_tracking2()
 
         return self._tracking
 
@@ -504,6 +504,109 @@ class File:
         self._inp_data = inp_data
         self._inp_data_dirty = False
 
+
+    def _read_tracking2(self):
+
+        # If proportion of NaN is >= threshold, then that position information is droped
+        threshold = 0.95
+
+        pos_filename = os.path.join(self._path, self._base_filename + ".pos")
+        if not os.path.exists(pos_filename):
+            raise IOError("'.pos' file not found:" + pos_filename)
+
+        with open(pos_filename, "rb") as f:
+            attrs = parse_header_and_leave_cursor(f)
+
+            sample_rate_split = attrs["sample_rate"].split(" ")
+            assert (sample_rate_split[1] == "hz")
+            sample_rate = float(sample_rate_split[0]) * pq.Hz  # sample_rate 50.0 hz
+
+            num_colors = int(attrs["num_colours"])
+            # TODO: use pos_sample_count
+            pos_samples_count = int(attrs["num_pos_samples"])
+            bytes_per_timestamp = int(attrs["bytes_per_timestamp"])
+            bytes_per_coord = int(attrs["bytes_per_coord"])
+
+            timestamp_dtype = ">i" + str(bytes_per_timestamp)
+            coord_dtype = ">i" + str(bytes_per_coord)
+
+            bytes_per_pixel_count = 4
+            pixel_count_dtype = ">i" + str(bytes_per_pixel_count)
+
+            pattern = ','.join(['t'] + ['x{n},y{n}'.format(n=n + 1) for n in range(num_colors)])
+
+            pos_format = attrs['pos_format']
+            if re.match(pattern, pos_format):
+                two_spot = False
+            elif re.match('t,x1,y1,x2,y2,numpix1,numpix2', pos_format):
+                two_spot = True
+            else:
+                raise ValueError('pos file is encoded in unknown format "{}"'.format(pos_format))
+
+            if two_spot:
+                dtype = np.dtype([("t", (timestamp_dtype, 1)),
+                                  ("coords", coord_dtype, 2 * self._tracked_spots_count),
+                                  ("pixel_count", (pixel_count_dtype, 1), 2)])
+            else:
+                dtype = np.dtype([("t", (timestamp_dtype, 1)),
+                                  ("coords", coord_dtype, 2 * num_colors)])
+
+            data = np.fromfile(f, dtype=dtype)
+
+        dt = 1 / sample_rate
+
+        # time stamps are constructed based on the sampling rate
+        timestamps = np.arange(len(data)) * dt
+
+        coords = data['coords'].astype(float)
+
+        # replace 1023 with nan
+        coords[coords == 1023] = np.nan
+
+        N = coords.shape[1]
+
+        if N == 4:
+            # handle old format with zero padded endings
+            good_t = ~np.all(coords == 0, axis=1)
+            timestamps = timestamps[good_t]
+            coords = coords[good_t]
+
+        if N > 4:
+            # count the number of functional color channels
+            valid_colors = np.any(~np.isnan(coords[:, 0:2 * N:2]), axis=0)
+            n_valid_colors = valid_colors.sum()
+
+            # select up to n_max_colors to return coordinates for
+            n_max_colors = 2
+            color_pos = np.where(valid_colors)[0][:n_max_colors]
+
+            pos = [(coords[:, 2 * p] + attrs['window_min_x'], coords[:, 2 * p + 1] + attrs['window_min_y']) for p in
+                   color_pos]
+        elif N == 4:  # 2-spot recording
+            # not entirely sure if this really has to be handled as special case
+            color_pos = [0, 1]
+            pos = [(coords[:, 2 * p] + attrs['window_min_x'], coords[:, 2 * p + 1] + attrs['window_min_y']) for p in
+                   color_pos]
+        else:
+            raise ValueError("Expected at least 4 tracking coordinates but found only {}".format(N))
+
+        # filter out position that is nan for >= threshold of samples
+        # check if guaranteed inclusion of first coordinate is necessary
+        pos_filtered = [p for i, p in enumerate(pos) if i == 0 or np.isnan(p[0]).mean() < threshold]
+
+        # stack all coordinates into an array
+        all_pos = np.concatenate([np.stack(xy, axis=-1) for xy in pos_filtered], axis=1)
+
+        tracking_data = TrackingData(
+            times=timestamps,
+            positions=all_pos,
+            attrs=attrs
+        )
+
+        self._tracking = tracking_data
+        self._tracking_dirty = False
+
+
     def _read_tracking(self):
         """
         Read position tracking files from `.pos` file
@@ -520,6 +623,7 @@ class File:
             sample_rate = float(sample_rate_split[0]) * pq.Hz  # sample_rate 50.0 hz
 
             eeg_samples_per_position = float(attrs["EEG_samples_per_position"])
+            num_colors = int(attrs["num_colours"])
             pos_samples_count = int(attrs["num_pos_samples"])
             bytes_per_timestamp = int(attrs["bytes_per_timestamp"])
             bytes_per_coord = int(attrs["bytes_per_coord"])
