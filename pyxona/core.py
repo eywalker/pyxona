@@ -598,6 +598,26 @@ class File:
         # stack all coordinates into an array
         all_pos = np.concatenate([np.stack(xy, axis=-1) for xy in pos_filtered], axis=1)
 
+        # Remove NaN values at the endpoints
+        for c in range(0, all_pos.shape[1]):
+            if np.isnan(all_pos[0, c]):
+                r = all_pos.shape[0] - 1
+                j = 1
+                while (j < r) & np.isnan(all_pos[j, c]):
+                    j += 1
+                if j < 1000:
+                    all_pos[0, c] = all_pos[j, c] - 0.02 * j
+                else:
+                    all_pos[0, c] = all_pos[j, c]
+            if np.isnan(all_pos[r, c]):
+                k = r
+                while (0 < k) & np.isnan(all_pos[k, c]):
+                    k -= 1
+                if r - k < 1000:
+                    all_pos[r, c] = all_pos[k, c] + 0.02 * (r - k - 1)
+                else:
+                    all_pos[r, c] = all_pos[k, c]
+
         tracking_data = TrackingData(
             times=timestamps,
             positions=all_pos,
