@@ -234,15 +234,16 @@ class AnalogSignal:
     """
     Represents analog signals such as EEG,
     """
-    def __init__(self, channel_id, signal, sample_rate, attrs):
+    def __init__(self, channel_id, signal, sample_rate, signal_type, attrs):
         self.channel_id = channel_id
         self.signal = signal
         self.sample_rate = sample_rate
+        self.signal_type = signal_type
         self.attrs = attrs
 
     def __str__(self):
-        return "<Axona analog signal: channel: {}, shape: {}, sample_rate: {}>".format(
-            self.channel_id, self.signal.shape, self.sample_rate
+        return "<Axona analog signal: type: {}, channel: {}, shape: {}, sample_rate: {}>".format(
+            self.signal_type, self.channel_id, self.signal.shape, self.sample_rate
         )
 
 
@@ -763,6 +764,7 @@ class File:
                     channel_id=eeg_original_channel_id,
                     signal=signal,
                     sample_rate=sample_rate,
+                    signal_type=file_type,
                     attrs=attrs
                 )
 
